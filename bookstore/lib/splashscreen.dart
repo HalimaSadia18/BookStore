@@ -11,10 +11,10 @@ class SplashScreen extends StatelessWidget {
       body: Center(
         // Centers the entire content
         child: Container(
-          width: 200, // Default width
-          height: 200, // Default height
+          width: 262, // Default width
+          height: 262, // Default height
           decoration: BoxDecoration(
-            color: Color(0xFF121212),
+            color: Colors.black,
             shape: BoxShape.circle,
             boxShadow: [
               BoxShadow(
@@ -27,11 +27,11 @@ class SplashScreen extends StatelessWidget {
           ),
           child: Center(
             child: SizedBox(
-              width: 150, // Smaller image size relative to container
-              height: 150,
+              width: 200, // Smaller image size relative to container
+              height: 200,
               // *** Using Image.asset for local assets ***
-              child: SvgPicture.asset(
-                'assets/images/un_logo.svg', // Is this path absolutely correct?
+              child: Image.asset(
+                'assets/images/logo.png', // Is this path absolutely correct?
                 // ...
               ),
             ),
