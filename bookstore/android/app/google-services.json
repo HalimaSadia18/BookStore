@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "679446142750-0kbo4bu9uqmta5980jrqm7623mr443n9.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.bookstore",
+            "certificate_hash": "8679180feb7cc99b8c8768aa1a71379c4741173e"
+          }
+        },
+        {
           "client_id": "679446142750-o68h8iisreap1j3o5dde1rhlsv68cl8d.apps.googleusercontent.com",
           "client_type": 3
         }

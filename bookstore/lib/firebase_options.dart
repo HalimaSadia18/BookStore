@@ -59,4 +59,5 @@ class DefaultFirebaseOptions {
     projectId: 'bookstore-af40d',
     storageBucket: 'bookstore-af40d.firebasestorage.app',
   );
+
 }

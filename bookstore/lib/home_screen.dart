@@ -2,6 +2,12 @@ import 'package:bookstore/book_detail_screen.dart';
 import 'package:bookstore/screen_categories.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:bookstore/CartScreen.dart';
+import 'package:bookstore/home_screen.dart';
+import 'package:bookstore/WishlistScreen.dart'; // Import the new wishlist screen
+
+import 'OrderSuccessScreen.dart';
+// import 'package:bookstore/order_success_screen.dart';
 
 // Your existing Book and Category classes are fine.
 class Category {
@@ -43,78 +49,66 @@ class Book {
     return Book(
       title: bookData['title'] as String? ?? 'Unknown Title',
       author: bookData['author'] as String? ?? 'Unknown Author',
-      imageUrl: bookData['imageUrl'] as String? ?? 'https://placehold.co/150x200',
+      imageUrl: bookData['imageUrl'] as String? ?? '',
       category: bookData['category'] as String? ?? 'General',
       price: (bookData['price'] as num?)?.toDouble() ?? 0.0,
       originalPrice: (bookData['originalPrice'] as num?)?.toDouble(),
       rating: (bookData['rating'] as num?)?.toDouble() ?? 0.0,
-      description: bookData['description'] as String? ?? "No Description Available",
+      description: bookData['description'] as String? ?? 'No Description Available',
     );
   }
 }
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  const HomeScreen({super.key, required List cartItems});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  int _selectedIndex = 0;
+  late Future<List<Book>> _latestBooksFuture;
+  late Future<List<Book>> _upcomingBooksFuture;
+  late Future<List<Book>> _topBooksFuture;
 
-  // New state variables for search functionality
-  List<Book> _allBooks = [];
-  late Future<List<Book>> _filteredBooksFuture;
-  final TextEditingController _searchController = TextEditingController();
+  int _selectedIndex = 0;
 
   @override
   void initState() {
     super.initState();
-    // Fetch all books, populate the _allBooks list, and set the initial filtered list
-    _fetchBooks().then((books) {
-      setState(() {
-        _allBooks = books;
-        _filteredBooksFuture = Future.value(_allBooks);
-      });
-    });
-    // Add a listener to the search controller to filter books as the user types
-    _searchController.addListener(_filterBooks);
+    _latestBooksFuture = _fetchBooks('latest');
+    _upcomingBooksFuture = _fetchBooks('upcoming');
+    _topBooksFuture = _fetchBooks('top_books');
   }
 
-  @override
-  void dispose() {
-    _searchController.removeListener(_filterBooks);
-    _searchController.dispose();
-    super.dispose();
-  }
-
-  // Method to fetch all books from Firestore
-  Future<List<Book>> _fetchBooks() async {
+  Future<List<Book>> _fetchBooks(String type) async {
     try {
-      final querySnapshot = await FirebaseFirestore.instance.collection('books').get();
+      Query query = FirebaseFirestore.instance.collection('books');
+
+      switch (type) {
+        case 'latest':
+          final querySnapshot = await query.get();
+          final books = querySnapshot.docs.map((doc) => Book.fromFirestore(doc)).toList();
+          books.sort((a, b) => b.title.compareTo(a.title));
+          return books;
+        case 'upcoming':
+          query = query.where('is_upcoming', isEqualTo: true);
+          break;
+        case 'top_books':
+          final querySnapshot = await query.get();
+          final books = querySnapshot.docs.map((doc) => Book.fromFirestore(doc)).toList();
+          books.sort((a, b) => b.rating.compareTo(a.rating));
+          return books;
+        default:
+          break;
+      }
+
+      final querySnapshot = await query.get();
       return querySnapshot.docs.map((doc) => Book.fromFirestore(doc)).toList();
     } catch (e) {
-      print('Error fetching books: $e');
+      print('Error fetching books for $type: $e');
       return [];
     }
-  }
-
-  // Method to filter books based on the search query
-  void _filterBooks() {
-    final query = _searchController.text.toLowerCase();
-    setState(() {
-      if (query.isEmpty) {
-        _filteredBooksFuture = Future.value(_allBooks);
-      } else {
-        final filteredList = _allBooks.where((book) {
-          final titleLower = book.title.toLowerCase();
-          final authorLower = book.author.toLowerCase();
-          return titleLower.contains(query) || authorLower.contains(query);
-        }).toList();
-        _filteredBooksFuture = Future.value(filteredList);
-      }
-    });
   }
 
   void _onItemTapped(int index) {
@@ -122,171 +116,28 @@ class _HomeScreenState extends State<HomeScreen> {
       _selectedIndex = index;
     });
 
-    if (index == 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Already on Home page!')),
-      );
-    } else if (index == 1) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const CategoriesScreen()),
-      );
-    } else if (index == 2) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Cart page tapped! (Implement navigation)')),
-      );
-    } else if (index == 3) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Account page tapped! (Implement navigation)')),
-      );
+    switch(index) {
+      case 0:
+        break;
+      case 1:
+        Navigator.push(context, MaterialPageRoute(builder: (context) => const CategoriesScreen()));
+        break;
+      case 2:
+        Navigator.push(context, MaterialPageRoute(builder: (context) => const WishlistScreen()));
+        break;
+      case 3:
+        Navigator.push(context, MaterialPageRoute(builder: (context) => const CartScreen(cartItems: [],)));
+        break;
+      case 4:
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Account screen coming soon!')),
+        );
+        break;
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: GestureDetector(
-            onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Profile icon tapped!')),
-              );
-            },
-            child: const CircleAvatar(
-              backgroundColor: Colors.blueGrey,
-              child: Icon(Icons.person, color: Colors.white),
-            ),
-          ),
-        ),
-        title: const Text(
-          'E Book Store',
-          style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
-        ),
-        centerTitle: true,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.filter_list, color: Colors.black),
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Filter icon tapped!')),
-              );
-            },
-          ),
-        ],
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // --- Search Bar Section ---
-            Container(
-              margin: const EdgeInsets.only(bottom: 20.0),
-              decoration: BoxDecoration(
-                color: Colors.grey[200],
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: TextField(
-                controller: _searchController, // Add controller here
-                decoration: InputDecoration(
-                  hintText: 'Search Books',
-                  prefixIcon: const Icon(Icons.search, color: Colors.grey),
-                  border: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(vertical: 15.0, horizontal: 10.0),
-                ),
-                // onChanged: (value) => _filterBooks(value), // Old way, now we use a listener
-              ),
-            ),
-
-            // --- All Books Section (now uses filtered list) ---
-            _buildSectionHeader(context, 'All Books'),
-            const SizedBox(height: 10),
-            SizedBox(
-              height: 260,
-              child: FutureBuilder<List<Book>>(
-                future: _filteredBooksFuture, // Use the filtered list here
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
-                  } else if (snapshot.hasError) {
-                    return Center(child: Text('Error: ${snapshot.error}'));
-                  } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                    return const Center(child: Text('No books found.'));
-                  } else {
-                    final books = snapshot.data!;
-                    return ListView.builder(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: books.length,
-                      itemBuilder: (context, index) {
-                        final book = books[index];
-                        return _buildBookCard(context, book);
-                      },
-                    );
-                  }
-                },
-              ),
-            ),
-            const SizedBox(height: 20),
-          ],
-        ),
-      ),
-      bottomNavigationBar: BottomNavigationBar(
-        items: const <BottomNavigationBarItem>[
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: 'Home',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.category),
-            label: 'Categories',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.shopping_cart),
-            label: 'Cart',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: 'Account',
-          ),
-        ],
-        currentIndex: _selectedIndex,
-        selectedItemColor: Colors.blue,
-        unselectedItemColor: Colors.grey,
-        onTap: _onItemTapped,
-        type: BottomNavigationBarType.fixed,
-      ),
-    );
-  }
-
-  Widget _buildSectionHeader(BuildContext context, String title) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          title,
-          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-        ),
-        TextButton(
-          onPressed: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('See All $title tapped!')),
-            );
-          },
-          child: const Text(
-            'See All',
-            style: TextStyle(color: Colors.blue),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildBookCard(BuildContext context, Book book, {bool isDeal = false}) {
-    return GestureDetector(
+  Widget _buildCompactBookCard(BuildContext context, Book book) {
+    return InkWell(
       onTap: () {
         Navigator.push(
           context,
@@ -301,83 +152,317 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              height: 150,
-              width: 120,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(8),
-                image: DecorationImage(
-                  image: NetworkImage(book.imageUrl),
-                  fit: BoxFit.cover,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.grey.withOpacity(0.3),
-                    spreadRadius: 1,
-                    blurRadius: 3,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: Image.network(
+                book.imageUrl,
+                height: 160,
+                width: 120,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) =>
+                    Container(
+                      height: 160,
+                      width: 120,
+                      color: Colors.grey[200],
+                      child: const Center(
+                        child: Icon(Icons.broken_image, color: Colors.grey),
+                      ),
+                    ),
+                loadingBuilder: (BuildContext context, Widget child, ImageChunkEvent? loadingProgress) {
+                  if (loadingProgress == null) {
+                    return child;
+                  }
+                  return Container(
+                    height: 160,
+                    width: 120,
+                    color: Colors.grey[200],
+                    child: Center(
+                      child: CircularProgressIndicator(
+                        value: loadingProgress.expectedTotalBytes != null
+                            ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                            : null,
+                      ),
+                    ),
+                  );
+                },
               ),
             ),
             const SizedBox(height: 8),
             Text(
               book.title,
-              maxLines: 2,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+              ),
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+              maxLines: 2,
             ),
             Text(
               book.author,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
               style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+              overflow: TextOverflow.ellipsis,
             ),
-            const SizedBox(height: 4),
-            if (isDeal && book.originalPrice != null)
-              Row(
-                children: [
-                  Text(
-                    '\$${book.price.toStringAsFixed(2)}',
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.blue,
-                    ),
-                  ),
-                  const SizedBox(width: 5),
-                  Text(
-                    '\$${book.originalPrice!.toStringAsFixed(2)}',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey,
-                      decoration: TextDecoration.lineThrough,
-                    ),
-                  ),
-                ],
-              )
-            else
-              Text(
-                '\$${book.price.toStringAsFixed(2)}',
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.blue,
-                ),
+            Text(
+              '\$${book.price.toStringAsFixed(2)}',
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: Colors.blue,
               ),
-            if (book.rating > 0)
-              Row(
-                children: [
-                  const Icon(Icons.star, color: Colors.amber, size: 14),
-                  const SizedBox(width: 4),
-                  Text(
-                    book.rating.toStringAsFixed(1),
-                    style: const TextStyle(fontSize: 12, color: Colors.grey),
-                  ),
-                ],
-              ),
+            ),
           ],
         ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Happy Reading!', style: TextStyle(color: Colors.black)),
+        centerTitle: false,
+        backgroundColor: Colors.white,
+        elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.search, color: Colors.black),
+            onPressed: () {
+              // Search functionality
+            },
+          ),
+        ],
+      ),
+      body: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Replaced Best Deals with a simple image and quote section
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Container(
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.grey.withOpacity(0.2),
+                      spreadRadius: 2,
+                      blurRadius: 5,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      Image.asset(
+                        'assets/images/shelf.jpg',
+                        fit: BoxFit.cover,
+                        height: 200,
+                        width: double.infinity,
+                      ),
+                      Container(
+                        color: Colors.black.withOpacity(0.4),
+                      ),
+                      // const Text(
+                      //   '"A book is a gift you can open again and again."',
+                      //   textAlign: TextAlign.center,
+                      //   style: TextStyle(
+                      //     color: Colors.white,
+                      //     fontSize: 20,
+                      //     fontStyle: FontStyle.italic,
+                      //     fontWeight: FontWeight.bold,
+                      //   ),
+                      // ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // Top Books Section
+            // Padding(
+            //   padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            //   child: Row(
+            //     mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            //     children: [
+            //       const Text(
+            //         'Top Books',
+            //         style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            //       ),
+            //       TextButton(
+            //         onPressed: () {},
+            //         child: const Text('See more'),
+            //       ),
+            //     ],
+            //   ),
+            // ),
+            // const SizedBox(height: 10),
+            // Padding(
+            //   padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            //   child: Row(
+            //     children: [
+            //       ElevatedButton(onPressed: () {}, child: const Text('This Week')),
+            //       const SizedBox(width: 8),
+            //       ElevatedButton(onPressed: () {}, child: const Text('This Month')),
+            //       const SizedBox(width: 8),
+            //       ElevatedButton(onPressed: () {}, child: const Text('This Year')),
+            //     ],
+            //   ),
+            // ),
+            // const SizedBox(height: 16),
+            // SizedBox(
+            //   height: 250,
+            //   child: FutureBuilder<List<Book>>(
+            //     future: _topBooksFuture,
+            //     builder: (context, snapshot) {
+            //       if (snapshot.connectionState == ConnectionState.waiting) {
+            //         return const Center(child: CircularProgressIndicator());
+            //       } else if (snapshot.hasError) {
+            //         return Center(child: Text('Error: ${snapshot.error}'));
+            //       } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+            //         return const Center(child: Text('No top books found.'));
+            //       } else {
+            //         final books = snapshot.data!;
+            //         return ListView.builder(
+            //           scrollDirection: Axis.horizontal,
+            //           padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            //           itemCount: books.length,
+            //           itemBuilder: (context, index) {
+            //             return _buildCompactBookCard(context, books[index]);
+            //           },
+            //         );
+            //       }
+            //     },
+            //   ),
+            // ),
+            // const SizedBox(height: 20),
+
+            // Latest Books Section
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Latest Books',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                  // TextButton(
+                  //   onPressed: () {
+                  //     Navigator.push(context, MaterialPageRoute(builder: (context) => OrderSuccessScreen()));
+                  //   },
+                  //   child: const Text('Go to Order Success Screen'),
+                  // ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 10),
+            SizedBox(
+              height: 250,
+              child: FutureBuilder<List<Book>>(
+                future: _latestBooksFuture,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  } else if (snapshot.hasError) {
+                    return Center(child: Text('Error: ${snapshot.error}'));
+                  } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                    return const Center(child: Text('No latest books found.'));
+                  } else {
+                    final books = snapshot.data!;
+                    return ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                      itemCount: books.length,
+                      itemBuilder: (context, index) {
+                        return _buildCompactBookCard(context, books[index]);
+                      },
+                    );
+                  }
+                },
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // Upcoming Books Section
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Upcoming Books',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                  TextButton(
+                    onPressed: () {},
+                    child: const Text('See more'),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 10),
+            SizedBox(
+              height: 250,
+              child: FutureBuilder<List<Book>>(
+                future: _upcomingBooksFuture,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  } else if (snapshot.hasError) {
+                    return Center(child: Text('Error: ${snapshot.error}'));
+                  } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                    return const Center(child: Text('No upcoming books found.'));
+                  } else {
+                    final books = snapshot.data!;
+                    return ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                      itemCount: books.length,
+                      itemBuilder: (context, index) {
+                        return _buildCompactBookCard(context, books[index]);
+                      },
+                    );
+                  }
+                },
+              ),
+            ),
+            const SizedBox(height: 20),
+          ],
+        ),
+      ),
+      bottomNavigationBar: BottomNavigationBar(
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.home),
+            label: 'Home',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.category),
+            label: 'Categories',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.favorite),
+            label: 'Wishlist',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.shopping_cart),
+            label: 'Cart',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person),
+            label: 'Account',
+          ),
+        ],
+        currentIndex: _selectedIndex,
+        selectedItemColor: Colors.blue,
+        unselectedItemColor: Colors.grey,
+        onTap: _onItemTapped,
       ),
     );
   }

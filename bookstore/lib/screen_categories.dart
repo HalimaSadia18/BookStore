@@ -35,45 +35,26 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     if (index == 0) { // Home icon tapped
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (context) => const HomeScreen()),
+        MaterialPageRoute(builder: (context) => const HomeScreen(cartItems: [],)),
       );
     } else if (index == 1) { // Categories icon tapped
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Already on Categories Screen!')),
-      );
-    } else if (index == 2) { // Cart icon tapped
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Cart page tapped! (Implement navigation)')),
-      );
-    } else if (index == 3) { // Account icon tapped
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Account page tapped! (Implement navigation)')),
+        const SnackBar(content: Text('You are already on the Categories screen.')),
       );
     }
   }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text('Categories', style: TextStyle(color: Colors.black)),
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () {
-            Navigator.pop(context);
-          },
-        ),
+        title: const Text('Categories'),
+        centerTitle: true,
       ),
-      body: Padding(
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
-        child: ListView.builder(
-          itemCount: categories.length,
-          itemBuilder: (context, index) {
-            final category = categories[index];
-            return _buildCategoryCard(context, category);
-          },
+        child: Column(
+          children: categories.map((category) => _buildCategoryCard(context, category)).toList(),
         ),
       ),
       bottomNavigationBar: BottomNavigationBar(
@@ -86,27 +67,16 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
             icon: Icon(Icons.category),
             label: 'Categories',
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.shopping_cart),
-            label: 'Cart',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: 'Account',
-          ),
         ],
         currentIndex: _selectedIndex,
         selectedItemColor: Colors.blue,
-        unselectedItemColor: Colors.grey,
         onTap: _onItemTapped,
-        type: BottomNavigationBarType.fixed,
       ),
     );
   }
 
-  /// Helper widget to build the category card
   Widget _buildCategoryCard(BuildContext context, Category category) {
-    return GestureDetector(
+    return InkWell(
       onTap: () {
         Navigator.push(
           context,
