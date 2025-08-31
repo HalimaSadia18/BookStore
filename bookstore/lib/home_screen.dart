@@ -4,12 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:bookstore/CartScreen.dart';
 import 'package:bookstore/home_screen.dart';
-import 'package:bookstore/WishlistScreen.dart'; // Import the new wishlist screen
+import 'package:bookstore/WishlistScreen.dart';
 
 import 'OrderSuccessScreen.dart';
-// import 'package:bookstore/order_success_screen.dart';
 
-// Your existing Book and Category classes are fine.
 class Category {
   final String name;
   final String imageUrl;
@@ -67,48 +65,87 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  late Future<List<Book>> _latestBooksFuture;
-  late Future<List<Book>> _upcomingBooksFuture;
-  late Future<List<Book>> _topBooksFuture;
-
   int _selectedIndex = 0;
+  final TextEditingController _searchController = TextEditingController();
+
+  List<Book> _allBooks = [];
+  List<Book> _latestBooks = [];
+  List<Book> _upcomingBooks = [];
+  List<Book> _topBooks = [];
+
+  bool _isLoading = true;
+  String _sortOption = 'none';
 
   @override
   void initState() {
     super.initState();
-    _latestBooksFuture = _fetchBooks('latest');
-    _upcomingBooksFuture = _fetchBooks('upcoming');
-    _topBooksFuture = _fetchBooks('top_books');
+    _fetchAndFilterBooks();
+    _searchController.addListener(_onSearchChanged);
   }
 
-  Future<List<Book>> _fetchBooks(String type) async {
+  @override
+  void dispose() {
+    _searchController.removeListener(_onSearchChanged);
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _onSearchChanged() {
+    _filterBooks();
+  }
+
+  Future<void> _fetchAndFilterBooks() async {
     try {
-      Query query = FirebaseFirestore.instance.collection('books');
+      final querySnapshot = await FirebaseFirestore.instance.collection('books').get();
+      _allBooks = querySnapshot.docs.map((doc) => Book.fromFirestore(doc)).toList();
 
-      switch (type) {
-        case 'latest':
-          final querySnapshot = await query.get();
-          final books = querySnapshot.docs.map((doc) => Book.fromFirestore(doc)).toList();
-          books.sort((a, b) => b.title.compareTo(a.title));
-          return books;
-        case 'upcoming':
-          query = query.where('is_upcoming', isEqualTo: true);
-          break;
-        case 'top_books':
-          final querySnapshot = await query.get();
-          final books = querySnapshot.docs.map((doc) => Book.fromFirestore(doc)).toList();
-          books.sort((a, b) => b.rating.compareTo(a.rating));
-          return books;
-        default:
-          break;
-      }
-
-      final querySnapshot = await query.get();
-      return querySnapshot.docs.map((doc) => Book.fromFirestore(doc)).toList();
+      _filterBooks(); // Initial filtering and sorting
+      setState(() {
+        _isLoading = false;
+      });
     } catch (e) {
-      print('Error fetching books for $type: $e');
-      return [];
+      print('Error fetching books: $e');
+      setState(() {
+        _isLoading = false;
+        // Optionally show an error message
+      });
     }
+  }
+
+  void _filterBooks() {
+    final searchQuery = _searchController.text.toLowerCase();
+
+    // Filter books based on search query
+    final filtered = _allBooks.where((book) {
+      final titleMatch = book.title.toLowerCase().contains(searchQuery);
+      final authorMatch = book.author.toLowerCase().contains(searchQuery);
+      final categoryMatch = book.category.toLowerCase().contains(searchQuery);
+      return titleMatch || authorMatch || categoryMatch;
+    }).toList();
+
+    // Apply sorting
+    if (_sortOption == 'priceAsc') {
+      filtered.sort((a, b) => a.price.compareTo(b.price));
+    } else if (_sortOption == 'priceDesc') {
+      filtered.sort((a, b) => b.price.compareTo(a.price));
+    }
+
+    // Assign filtered and sorted lists to the different sections
+    _latestBooks = filtered.where((book) => book.category == 'latest').toList();
+    _latestBooks.sort((a, b) => b.title.compareTo(a.title));
+
+    _upcomingBooks = filtered.where((book) => book.category == 'upcoming').toList();
+    _upcomingBooks.sort((a, b) => a.title.compareTo(b.title));
+
+    _topBooks = filtered.where((book) => book.rating > 4.0).toList();
+    _topBooks.sort((a, b) => b.rating.compareTo(a.rating));
+
+    // Fallback if the specific sections are empty, show all filtered books
+    if (_latestBooks.isEmpty) _latestBooks = filtered;
+    if (_upcomingBooks.isEmpty) _upcomingBooks = filtered;
+    if (_topBooks.isEmpty) _topBooks = filtered;
+
+    setState(() {});
   }
 
   void _onItemTapped(int index) {
@@ -123,17 +160,47 @@ class _HomeScreenState extends State<HomeScreen> {
         Navigator.push(context, MaterialPageRoute(builder: (context) => const CategoriesScreen()));
         break;
       case 2:
-        Navigator.push(context, MaterialPageRoute(builder: (context) => const WishlistScreen()));
-        break;
-      case 3:
         Navigator.push(context, MaterialPageRoute(builder: (context) => const CartScreen(cartItems: [],)));
         break;
-      case 4:
+      case 3:
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Account screen coming soon!')),
         );
         break;
     }
+  }
+
+  void _showFilterDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return SimpleDialog(
+          title: const Text('Filter Books'),
+          children: <Widget>[
+            SimpleDialogOption(
+              onPressed: () {
+                setState(() {
+                  _sortOption = 'priceAsc';
+                  _filterBooks();
+                });
+                Navigator.pop(context);
+              },
+              child: const Text('Price: Low to High'),
+            ),
+            SimpleDialogOption(
+              onPressed: () {
+                setState(() {
+                  _sortOption = 'priceDesc';
+                  _filterBooks();
+                });
+                Navigator.pop(context);
+              },
+              child: const Text('Price: High to Low'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   Widget _buildCompactBookCard(BuildContext context, Book book) {
@@ -226,17 +293,54 @@ class _HomeScreenState extends State<HomeScreen> {
         elevation: 0,
         actions: [
           IconButton(
-            icon: const Icon(Icons.search, color: Colors.black),
+            icon: const Icon(Icons.favorite, color: Colors.black),
             onPressed: () {
-              // Search functionality
+              Navigator.push(context, MaterialPageRoute(builder: (context) => const WishlistScreen()));
             },
           ),
         ],
       ),
-      body: SingleChildScrollView(
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Search Bar and Filter
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _searchController,
+                      decoration: InputDecoration(
+                        hintText: 'Search books...',
+                        prefixIcon: const Icon(Icons.search),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(30.0),
+                          borderSide: BorderSide.none,
+                        ),
+                        filled: true,
+                        fillColor: Colors.grey[200],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.grey[200],
+                      shape: BoxShape.circle,
+                    ),
+                    child: IconButton(
+                      icon: const Icon(Icons.filter_list),
+                      onPressed: _showFilterDialog,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
             // Replaced Best Deals with a simple image and quote section
             Padding(
               padding: const EdgeInsets.all(16.0),
@@ -267,80 +371,12 @@ class _HomeScreenState extends State<HomeScreen> {
                       Container(
                         color: Colors.black.withOpacity(0.4),
                       ),
-                      // const Text(
-                      //   '"A book is a gift you can open again and again."',
-                      //   textAlign: TextAlign.center,
-                      //   style: TextStyle(
-                      //     color: Colors.white,
-                      //     fontSize: 20,
-                      //     fontStyle: FontStyle.italic,
-                      //     fontWeight: FontWeight.bold,
-                      //   ),
-                      // ),
                     ],
                   ),
                 ),
               ),
             ),
             const SizedBox(height: 20),
-
-            // Top Books Section
-            // Padding(
-            //   padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            //   child: Row(
-            //     mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            //     children: [
-            //       const Text(
-            //         'Top Books',
-            //         style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            //       ),
-            //       TextButton(
-            //         onPressed: () {},
-            //         child: const Text('See more'),
-            //       ),
-            //     ],
-            //   ),
-            // ),
-            // const SizedBox(height: 10),
-            // Padding(
-            //   padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            //   child: Row(
-            //     children: [
-            //       ElevatedButton(onPressed: () {}, child: const Text('This Week')),
-            //       const SizedBox(width: 8),
-            //       ElevatedButton(onPressed: () {}, child: const Text('This Month')),
-            //       const SizedBox(width: 8),
-            //       ElevatedButton(onPressed: () {}, child: const Text('This Year')),
-            //     ],
-            //   ),
-            // ),
-            // const SizedBox(height: 16),
-            // SizedBox(
-            //   height: 250,
-            //   child: FutureBuilder<List<Book>>(
-            //     future: _topBooksFuture,
-            //     builder: (context, snapshot) {
-            //       if (snapshot.connectionState == ConnectionState.waiting) {
-            //         return const Center(child: CircularProgressIndicator());
-            //       } else if (snapshot.hasError) {
-            //         return Center(child: Text('Error: ${snapshot.error}'));
-            //       } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-            //         return const Center(child: Text('No top books found.'));
-            //       } else {
-            //         final books = snapshot.data!;
-            //         return ListView.builder(
-            //           scrollDirection: Axis.horizontal,
-            //           padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            //           itemCount: books.length,
-            //           itemBuilder: (context, index) {
-            //             return _buildCompactBookCard(context, books[index]);
-            //           },
-            //         );
-            //       }
-            //     },
-            //   ),
-            // ),
-            // const SizedBox(height: 20),
 
             // Latest Books Section
             Padding(
@@ -349,41 +385,21 @@ class _HomeScreenState extends State<HomeScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   const Text(
-                    'Latest Books',
+                    'Best Sellers',
                     style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                   ),
-                  // TextButton(
-                  //   onPressed: () {
-                  //     Navigator.push(context, MaterialPageRoute(builder: (context) => OrderSuccessScreen()));
-                  //   },
-                  //   child: const Text('Go to Order Success Screen'),
-                  // ),
                 ],
               ),
             ),
             const SizedBox(height: 10),
             SizedBox(
               height: 250,
-              child: FutureBuilder<List<Book>>(
-                future: _latestBooksFuture,
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
-                  } else if (snapshot.hasError) {
-                    return Center(child: Text('Error: ${snapshot.error}'));
-                  } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                    return const Center(child: Text('No latest books found.'));
-                  } else {
-                    final books = snapshot.data!;
-                    return ListView.builder(
-                      scrollDirection: Axis.horizontal,
-                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                      itemCount: books.length,
-                      itemBuilder: (context, index) {
-                        return _buildCompactBookCard(context, books[index]);
-                      },
-                    );
-                  }
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                itemCount: _latestBooks.length,
+                itemBuilder: (context, index) {
+                  return _buildCompactBookCard(context, _latestBooks[index]);
                 },
               ),
             ),
@@ -396,7 +412,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   const Text(
-                    'Upcoming Books',
+                    'New Arrivals',
                     style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                   ),
                   TextButton(
@@ -409,26 +425,12 @@ class _HomeScreenState extends State<HomeScreen> {
             const SizedBox(height: 10),
             SizedBox(
               height: 250,
-              child: FutureBuilder<List<Book>>(
-                future: _upcomingBooksFuture,
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
-                  } else if (snapshot.hasError) {
-                    return Center(child: Text('Error: ${snapshot.error}'));
-                  } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                    return const Center(child: Text('No upcoming books found.'));
-                  } else {
-                    final books = snapshot.data!;
-                    return ListView.builder(
-                      scrollDirection: Axis.horizontal,
-                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                      itemCount: books.length,
-                      itemBuilder: (context, index) {
-                        return _buildCompactBookCard(context, books[index]);
-                      },
-                    );
-                  }
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                itemCount: _upcomingBooks.length,
+                itemBuilder: (context, index) {
+                  return _buildCompactBookCard(context, _upcomingBooks[index]);
                 },
               ),
             ),
@@ -445,10 +447,6 @@ class _HomeScreenState extends State<HomeScreen> {
           BottomNavigationBarItem(
             icon: Icon(Icons.category),
             label: 'Categories',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.favorite),
-            label: 'Wishlist',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.shopping_cart),

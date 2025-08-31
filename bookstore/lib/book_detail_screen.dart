@@ -31,7 +31,7 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
   Future<void> _checkIfInWishlist() async {
     final userId = getUserId();
     final wishlistDoc = FirebaseFirestore.instance
-        .collection('wishlist')
+        .collection('wishlists')
         .doc(userId)
         .collection('items')
         .doc(widget.book.title);
@@ -48,7 +48,7 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
   Future<void> _toggleWishlist() async {
     final userId = getUserId();
     final wishlistDoc = FirebaseFirestore.instance
-        .collection('wishlist')
+        .collection('wishlists')
         .doc(userId)
         .collection('items')
         .doc(widget.book.title);

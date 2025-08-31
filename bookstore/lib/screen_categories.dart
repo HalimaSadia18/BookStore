@@ -1,3 +1,4 @@
+import 'package:bookstore/CartScreen.dart';
 import 'package:flutter/material.dart';
 import 'package:bookstore/category_books_screen.dart';
 import 'package:bookstore/home_screen.dart';
@@ -10,11 +11,15 @@ class Category {
   Category({required this.name, required this.imagePath});
 }
 
-final List<Category> categories = [
-  Category(name: 'drama', imagePath: 'assets/images/category.png'),
-  Category(name: 'Literature', imagePath: 'assets/images/category.png'),
+final List<Category> allCategories = [
+  Category(name: 'Non-fiction', imagePath: 'assets/images/category.png'),
+  Category(name: 'Classics', imagePath: 'assets/images/category.png'),
   Category(name: 'Fantasy', imagePath: 'assets/images/category.png'),
+  Category(name: 'Young Adult', imagePath: 'assets/images/category.png'),
+  Category(name: 'Crime', imagePath: 'assets/images/category.png'),
   Category(name: 'Horror', imagePath: 'assets/images/category.png'),
+  Category(name: 'Literature', imagePath: 'assets/images/category.png'),
+  Category(name: 'Drama', imagePath: 'assets/images/category.png'),
 ];
 
 class CategoriesScreen extends StatefulWidget {
@@ -26,21 +31,56 @@ class CategoriesScreen extends StatefulWidget {
 
 class _CategoriesScreenState extends State<CategoriesScreen> {
   int _selectedIndex = 1;
+  final TextEditingController _searchController = TextEditingController();
+  List<Category> _filteredCategories = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _filteredCategories = allCategories;
+    _searchController.addListener(_onSearchChanged);
+  }
+
+  @override
+  void dispose() {
+    _searchController.removeListener(_onSearchChanged);
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _onSearchChanged() {
+    filterCategories();
+  }
+
+  void filterCategories() {
+    final searchQuery = _searchController.text.toLowerCase();
+    setState(() {
+      _filteredCategories = allCategories.where((category) {
+        return category.name.toLowerCase().contains(searchQuery);
+      }).toList();
+    });
+  }
 
   void _onItemTapped(int index) {
     setState(() {
       _selectedIndex = index;
     });
 
-    if (index == 0) { // Home icon tapped
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const HomeScreen(cartItems: [],)),
-      );
-    } else if (index == 1) { // Categories icon tapped
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('You are already on the Categories screen.')),
-      );
+    switch(index) {
+      case 0:
+        Navigator.push(context, MaterialPageRoute(builder: (context) => const HomeScreen(cartItems: [])));
+        break;
+      case 1:
+        Navigator.push(context, MaterialPageRoute(builder: (context) => const CategoriesScreen()));
+        break;
+      case 2:
+        Navigator.push(context, MaterialPageRoute(builder: (context) => const CartScreen(cartItems: [],)));
+        break;
+      case 3:
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Account screen coming soon!')),
+        );
+        break;
     }
   }
 
@@ -52,13 +92,35 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
         centerTitle: true,
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
         child: Column(
-          children: categories.map((category) => _buildCategoryCard(context, category)).toList(),
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: _buildSearchBar(),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 16.0,
+                  mainAxisSpacing: 16.0,
+                  childAspectRatio: 1.0,
+                ),
+                itemCount: _filteredCategories.length,
+                itemBuilder: (context, index) {
+                  final category = _filteredCategories[index];
+                  return _buildCategoryCard(context, category);
+                },
+              ),
+            ),
+          ],
         ),
       ),
       bottomNavigationBar: BottomNavigationBar(
-        items: const <BottomNavigationBarItem>[
+        items: const [
           BottomNavigationBarItem(
             icon: Icon(Icons.home),
             label: 'Home',
@@ -67,10 +129,47 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
             icon: Icon(Icons.category),
             label: 'Categories',
           ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.shopping_cart),
+            label: 'Cart',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person),
+            label: 'Account',
+          ),
         ],
         currentIndex: _selectedIndex,
         selectedItemColor: Colors.blue,
+        unselectedItemColor: Colors.grey,
         onTap: _onItemTapped,
+      ),
+    );
+  }
+
+  Widget _buildSearchBar() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+      decoration: BoxDecoration(
+        color: Colors.grey[200],
+        borderRadius: BorderRadius.circular(30.0),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.search, color: Colors.grey),
+          const SizedBox(width: 8.0),
+          Expanded(
+            child: TextField(
+              controller: _searchController,
+              decoration: const InputDecoration(
+                hintText: 'Search Category',
+                border: InputBorder.none,
+              ),
+            ),
+          ),
+          // The filter button functionality is not implemented as per the original code.
+          // You can add a filter dialog here if you need more advanced sorting.
+
+        ],
       ),
     );
   }
@@ -86,8 +185,6 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
         );
       },
       child: Container(
-        height: 150,
-        margin: const EdgeInsets.only(bottom: 16.0),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),
           boxShadow: [
@@ -104,13 +201,9 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
             Positioned.fill(
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(12),
-                child: Image.asset( // Image.asset is for PNG, JPG, etc.
+                child: Image.asset(
                   category.imagePath,
                   fit: BoxFit.cover,
-                  // colorFilter: ColorFilter.mode(
-                  //   Colors.black.withOpacity(0.4),
-                  //   BlendMode.darken,
-                  // ),
                 ),
               ),
             ),
@@ -119,7 +212,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                 category.name,
                 style: const TextStyle(
                   color: Colors.white,
-                  fontSize: 24,
+                  fontSize: 18,
                   fontWeight: FontWeight.bold,
                 ),
               ),

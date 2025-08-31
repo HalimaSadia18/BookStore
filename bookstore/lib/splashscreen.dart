@@ -30,8 +30,8 @@ class _SplashScreenState extends State<SplashScreen> {
       body: Center(
         // Centers the entire content
         child: Container(
-          width: 262, // Default width
-          height: 262, // Default height
+          width: 200, // Default width
+          height: 200, // Default height
           decoration: BoxDecoration(
             color: Colors.black,
             shape: BoxShape.circle,

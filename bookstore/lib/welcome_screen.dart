@@ -94,8 +94,8 @@ class WelcomeScreen extends StatelessWidget {
             right: 0,
             child: Center(
               child: Container(
-                width: 200, // Default width
-                height: 200, // Default height
+                width: 180, // Default width
+                height: 180, // Default height
                 decoration: BoxDecoration(
                   color: Colors.black,
                   shape: BoxShape.circle,
@@ -110,8 +110,8 @@ class WelcomeScreen extends StatelessWidget {
                 ),
                 child: Center(
                   child: SizedBox(
-                    width: 150, // Smaller image size relative to container
-                    height: 150,
+                    width: 180, // Smaller image size relative to container
+                    height: 180,
                     // *** Using Image.asset for local assets ***
                     child: Image.asset(
                       'assets/images/logo.png', // Is this path absolutely correct?
