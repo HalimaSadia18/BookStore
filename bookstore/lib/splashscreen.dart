@@ -50,7 +50,7 @@ class _SplashScreenState extends State<SplashScreen> {
               height: 200,
               // *** Using Image.asset for local assets ***
               child: Image.asset(
-                'assets/images/logo.png', // Is this path absolutely correct?
+                'assets/images/logo1.png', // Is this path absolutely correct?
                 // ...
               ),
             ),

@@ -1,3 +1,5 @@
+import 'package:bookstore/Login.dart';
+import 'package:bookstore/Register.dart';
 import 'package:flutter/material.dart';
 
 class WelcomeScreen extends StatelessWidget {
@@ -50,7 +52,13 @@ class WelcomeScreen extends StatelessWidget {
                           width: double.infinity,
                           child: ElevatedButton(
                             onPressed: () {
-                              // Handle Get Started button press
+                              // Navigate to the SignInScreen when pressed
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const LoginScreen(),
+                                ),
+                              );
                             },
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.black, // White button on black background
@@ -69,7 +77,13 @@ class WelcomeScreen extends StatelessWidget {
                         SizedBox(height: 20),
                         TextButton(
                           onPressed: () {
-                            // Handle Register button press
+                            // Navigate to the SignUpScreen when pressed
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const CreateAccountScreen(),
+                              ),
+                            );
                           },
                           child: Text(
                             'Register',
@@ -114,7 +128,7 @@ class WelcomeScreen extends StatelessWidget {
                     height: 180,
                     // *** Using Image.asset for local assets ***
                     child: Image.asset(
-                      'assets/images/logo.png', // Is this path absolutely correct?
+                      'assets/images/logo1.png', // Is this path absolutely correct?
                       // ...
                     ),
                   ),

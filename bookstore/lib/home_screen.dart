@@ -5,7 +5,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:bookstore/CartScreen.dart';
 import 'package:bookstore/home_screen.dart';
 import 'package:bookstore/WishlistScreen.dart';
-
 import 'OrderSuccessScreen.dart';
 
 class Category {
@@ -24,7 +23,6 @@ class Book {
   final double? originalPrice;
   final double rating;
   final String description;
-
   Book({
     required this.title,
     required this.author,
@@ -35,15 +33,12 @@ class Book {
     this.rating = 0.0,
     this.description = "No Description Available"
   });
-
   factory Book.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data();
     if (data == null) {
       throw StateError('A document with null data was found.');
     }
-
     final bookData = data as Map<String, dynamic>;
-
     return Book(
       title: bookData['title'] as String? ?? 'Unknown Title',
       author: bookData['author'] as String? ?? 'Unknown Author',
@@ -56,49 +51,39 @@ class Book {
     );
   }
 }
-
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key, required List cartItems});
-
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
-
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
   final TextEditingController _searchController = TextEditingController();
-
   List<Book> _allBooks = [];
   List<Book> _latestBooks = [];
   List<Book> _upcomingBooks = [];
   List<Book> _topBooks = [];
-
   bool _isLoading = true;
   String _sortOption = 'none';
-
   @override
   void initState() {
     super.initState();
     _fetchAndFilterBooks();
     _searchController.addListener(_onSearchChanged);
   }
-
   @override
   void dispose() {
     _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
     super.dispose();
   }
-
   void _onSearchChanged() {
     _filterBooks();
   }
-
   Future<void> _fetchAndFilterBooks() async {
     try {
       final querySnapshot = await FirebaseFirestore.instance.collection('books').get();
       _allBooks = querySnapshot.docs.map((doc) => Book.fromFirestore(doc)).toList();
-
       _filterBooks(); // Initial filtering and sorting
       setState(() {
         _isLoading = false;
@@ -111,10 +96,8 @@ class _HomeScreenState extends State<HomeScreen> {
       });
     }
   }
-
   void _filterBooks() {
     final searchQuery = _searchController.text.toLowerCase();
-
     // Filter books based on search query
     final filtered = _allBooks.where((book) {
       final titleMatch = book.title.toLowerCase().contains(searchQuery);
@@ -122,7 +105,6 @@ class _HomeScreenState extends State<HomeScreen> {
       final categoryMatch = book.category.toLowerCase().contains(searchQuery);
       return titleMatch || authorMatch || categoryMatch;
     }).toList();
-
     // Apply sorting
     if (_sortOption == 'priceAsc') {
       filtered.sort((a, b) => a.price.compareTo(b.price));
